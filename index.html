@@ -440,8 +440,8 @@ const expandedRows = new Set();
    SUPABASE INIT
 ───────────────────────────────────────── */
 async function initSupabase() {
-  const url = document.getElementById('supa-url').value.trim();
-  const key = document.getElementById('supa-key').value.trim();
+  const url = 'https://gxnwngltagbksavkpklk.supabase.co';
+  const key = 'sb_publishable_rCBXXkTxUP7uJ1seU972fw_rPDmym80';
   if (!url || !key) { alert('Preencha URL e Anon Key.'); return; }
 
   try {
