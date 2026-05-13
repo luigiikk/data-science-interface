@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gerenciamento de Artigos Acadêmicos</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-color: #1a3a52;
+            --secondary-color: #2d5a7b;
+            --accent-color: #4a90e2;
+            --light-bg: #f8f9fa;
+            --card-bg: #ffffff;
+            --text-primary: #1a1a1a;
+            --text-secondary: #4a4a4a;
+            --border-color: #e0e0e0;
+            --success-color: #27ae60;
+            --highlight-color: #f0f4f8;
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+            --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.12);
+            --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.15);
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Trebuchet MS', sans-serif;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e8eef5 100%);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        /* Header */
+        header {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: white;
+            padding: 3rem 2rem;
+            text-align: center;
+            box-shadow: var(--shadow-lg);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            margin-bottom: 0.5rem;
+        }
+
+        header p {
+            font-size: 1.1rem;
+            opacity: 0.95;
+            font-weight: 300;
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Search Bar */
+        .search-container {
+            margin-bottom: 2rem;
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .search-box {
+            flex: 1;
+            min-width: 250px;
+            position: relative;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 0.875rem 1.25rem 0.875rem 2.75rem;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            background: var(--card-bg);
+            color: var(--text-primary);
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+        }
+
+        .search-box::before {
+            content: '🔍';
+            position: absolute;
+            left: 0.875rem;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.2rem;
+        }
+
+        /* Navigation Tabs */
+        .tabs-container {
+            display: flex;
+            gap: 0;
+            margin-bottom: 2rem;
+            border-bottom: 2px solid var(--border-color);
+            overflow-x: auto;
+            background: var(--card-bg);
+            border-radius: 8px 8px 0 0;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .tab-button {
+            flex: 1;
+            padding: 1.25rem 1.5rem;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-bottom: 3px solid transparent;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+            min-width: 150px;
+        }
+
+        .tab-button:hover {
+            color: var(--accent-color);
+            background: var(--highlight-color);
+        }
+
+        .tab-button:focus {
+            outline: none;
+            color: var(--accent-color);
+        }
+
+        /* Tab Content */
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Tab selection using CSS */
+        input[type="radio"] {
+            display: none;
+        }
+
+        #tab-articles:checked ~ .tabs-container .tab-articles,
+        #tab-authors:checked ~ .tabs-container .tab-authors,
+        #tab-keywords:checked ~ .tabs-container .tab-keywords,
+        #tab-references:checked ~ .tabs-container .tab-references {
+            color: var(--accent-color);
+            border-bottom-color: var(--accent-color);
+            background: var(--highlight-color);
+        }
+
+        #tab-articles:checked ~ .tab-content.articles,
+        #tab-authors:checked ~ .tab-content.authors,
+        #tab-keywords:checked ~ .tab-content.keywords,
+        #tab-references:checked ~ .tab-content.references {
+            display: block;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--card-bg);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow-sm);
+            transition: all 0.3s ease;
+            border-left: 4px solid var(--accent-color);
+        }
+
+        .card:hover {
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+        }
+
+        .card-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 0.75rem;
+            line-height: 1.4;
+        }
+
+        .card-subtitle {
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+            font-weight: 500;
+        }
+
+        .card-meta {
+            display: flex;
+            gap: 1.5rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .card-description {
+            color: var(--text-secondary);
+            line-height: 1.7;
+            margin-bottom: 1rem;
+        }
+
+        /* Articles Grid */
+        .articles-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .article-card {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .article-year {
+            display: inline-block;
+            background: var(--accent-color);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            width: fit-content;
+        }
+
+        .article-summary {
+            flex-grow: 1;
+            margin-bottom: 1rem;
+        }
+
+        .article-link {
+            display: inline-block;
+            color: var(--accent-color);
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            padding: 0.5rem 0;
+            border-bottom: 2px solid transparent;
+        }
+
+        .article-link:hover {
+            border-bottom-color: var(--accent-color);
+        }
+
+        /* Authors List */
+        .authors-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .author-card {
+            border-left-color: var(--success-color);
+        }
+
+        .author-name {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .author-affiliation {
+            color: var(--text-secondary);
+            font-style: italic;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .author-articles {
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+        }
+
+        .author-articles strong {
+            color: var(--primary-color);
+        }
+
+        /* Keywords */
+        .keywords-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .keyword-badge {
+            background: linear-gradient(135deg, var(--accent-color) 0%, var(--secondary-color) 100%);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 25px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            box-shadow: var(--shadow-sm);
+            transition: all 0.3s ease;
+            cursor: default;
+        }
+
+        .keyword-badge:hover {
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-md);
+        }
+
+        /* References */
+        .references-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .reference-item {
+            background: var(--card-bg);
+            padding: 1.5rem;
+            border-radius: 8px;
+            border-left: 4px solid var(--accent-color);
+            box-shadow: var(--shadow-sm);
+            transition: all 0.3s ease;
+        }
+
+        .reference-item:hover {
+            box-shadow: var(--shadow-md);
+            transform: translateX(4px);
+        }
+
+        .reference-text {
+            color: var(--text-primary);
+            line-height: 1.8;
+            font-size: 0.95rem;
+        }
+
+        .reference-type {
+            display: inline-block;
+            background: var(--highlight-color);
+            color: var(--text-secondary);
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            text-transform: uppercase;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 3rem 2rem;
+            color: var(--text-secondary);
+        }
+
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .empty-state h3 {
+            font-size: 1.3rem;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        /* Footer */
+        footer {
+            background: var(--primary-color);
+            color: white;
+            text-align: center;
+            padding: 2rem;
+            margin-top: 3rem;
+            font-size: 0.95rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 1.8rem;
+            }
+
+            .container {
+                padding: 1rem;
+            }
+
+            .articles-grid,
+            .authors-list {
+                grid-template-columns: 1fr;
+            }
+
+            .tabs-container {
+                flex-wrap: wrap;
+            }
+
+            .tab-button {
+                flex: 0 1 auto;
+                padding: 1rem 1.25rem;
+                font-size: 0.9rem;
+                min-width: 120px;
+            }
+
+            .search-container {
+                flex-direction: column;
+            }
+
+            .search-box {
+                min-width: 100%;
+            }
+        }
+
+        /* Print Styles */
+        @media print {
+            header, footer, .search-container, .tabs-container {
+                display: none;
+            }
+
+            .card {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>📚 Sistema de Gerenciamento de Artigos</h1>
+        <p>Explore artigos acadêmicos, autores, palavras-chave e referências bibliográficas</p>
+    </header>
+
+    <div class="container">
+        <!-- Search Bar -->
+        <div class="search-container">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Buscar artigos, autores ou palavras-chave...">
+            </div>
+        </div>
+
+        <!-- Tab Navigation -->
+        <input type="radio" id="tab-articles" name="tabs" checked>
+        <input type="radio" id="tab-authors" name="tabs">
+        <input type="radio" id="tab-keywords" name="tabs">
+        <input type="radio" id="tab-references" name="tabs">
+
+        <div class="tabs-container">
+            <label for="tab-articles" class="tab-button tab-articles">📄 Artigos</label>
+            <label for="tab-authors" class="tab-button tab-authors">👥 Autores</label>
+            <label for="tab-keywords" class="tab-button tab-keywords">🏷️ Palavras-chave</label>
+            <label for="tab-references" class="tab-button tab-references">📖 Referências</label>
+        </div>
+
+        <!-- Tab Content: Articles -->
+        <div class="tab-content articles active">
+            <div class="articles-grid">
+                <div class="card article-card">
+                    <span class="article-year">2023</span>
+                    <h3 class="card-title">Inteligência Artificial e Aprendizado de Máquina: Avanços Recentes</h3>
+                    <p class="card-description">Este artigo explora os avanços mais recentes em inteligência artificial e aprendizado de máquina, com foco em redes neurais profundas e suas aplicações práticas em diversos setores.</p>
+                    <div class="card-meta">
+                        <div class="meta-item">✍️ <strong>Dr. João Silva</strong></div>
+                        <div class="meta-item">📍 USP</div>
+                    </div>
+                    <a href="#" class="article-link">Ler mais →</a>
+                </div>
+
+                <div class="card article-card">
+                    <span class="article-year">2023</span>
+                    <h3 class="card-title">Processamento de Linguagem Natural: Transformers e Além</h3>
+                    <p class="card-description">Uma análise profunda sobre os modelos Transformer e sua revolucionária aplicação no processamento de linguagem natural, incluindo GPT e BERT.</p>
+                    <div class="card-meta">
+                        <div class="meta-item">✍️ <strong>Dra. Maria Santos</strong></div>
+                        <div class="meta-item">📍 UNICAMP</div>
+                    </div>
+                    <a href="#" class="article-link">Ler mais →</a>
+                </div>
+
+                <div class="card article-card">
+                    <span class="article-year">2022</span>
+                    <h3 class="card-title">Segurança em Sistemas de Computação em Nuvem</h3>
+                    <p class="card-description">Estudo abrangente sobre vulnerabilidades, ameaças e mecanismos de proteção em ambientes de computação em nuvem, com recomendações práticas.</p>
+                    <div class="card-meta">
+                        <div class="meta-item">✍️ <strong>Prof. Carlos Oliveira</strong></div>
+                        <div class="meta-item">📍 UFRJ</div>
+                    </div>
+                    <a href="#" class="article-link">Ler mais →</a>
+                </div>
+
+                <div class="card article-card">
+                    <span class="article-year">2022</span>
+                    <h3 class="card-title">Análise de Redes Sociais: Métricas e Padrões de Comportamento</h3>
+                    <p class="card-description">Investigação sobre padrões de comportamento em redes sociais, análise de influência e detecção de comunidades utilizando técnicas de graph mining.</p>
+                    <div class="card-meta">
+                        <div class="meta-item">✍️ <strong>Dra. Ana Costa</strong></div>
+                        <div class="meta-item">📍 UFMG</div>
+                    </div>
+                    <a href="#" class="article-link">Ler mais →</a>
+                </div>
+
+                <div class="card article-card">
+                    <span class="article-year">2023</span>
+                    <h3 class="card-title">Computação Quântica: Fundamentos e Aplicações Futuras</h3>
+                    <p class="card-description">Revisão dos princípios fundamentais da computação quântica, algoritmos quânticos e perspectivas de aplicação em problemas de otimização complexos.</p>
+                    <div class="card-meta">
+                        <div class="meta-item">✍️ <strong>Dr. Pedro Ferreira</strong></div>
+                        <div class="meta-item">📍 UFBA</div>
+                    </div>
+                    <a href="#" class="article-link">Ler mais →</a>
+                </div>
+
+                <div class="card article-card">
+                    <span class="article-year">2023</span>
+                    <h3 class="card-title">Visão Computacional e Reconhecimento de Objetos em Tempo Real</h3>
+                    <p class="card-description">Exploração de técnicas avançadas de visão computacional para detecção e reconhecimento de objetos em tempo real usando redes convolucionais.</p>
+                    <div class="card-meta">
+                        <div class="meta-item">✍️ <strong>Dr. João Silva, Dra. Maria Santos</strong></div>
+                        <div class="meta-item">📍 USP, UNICAMP</div>
+                    </div>
+                    <a href="#" class="article-link">Ler mais →</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Content: Authors -->
+        <div class="tab-content authors">
+            <div class="authors-list">
+                <div class="card author-card">
+                    <h3 class="author-name">Dr. João Silva</h3>
+                    <p class="author-affiliation">Universidade de São Paulo (USP) - Instituto de Matemática e Estatística</p>
+                    <p class="author-articles">
+                        <strong>Artigos publicados:</strong> 2
+                        <br>• Inteligência Artificial e Aprendizado de Máquina: Avanços Recentes
+                        <br>• Visão Computacional e Reconhecimento de Objetos em Tempo Real
+                    </p>
+                </div>
+
+                <div class="card author-card">
+                    <h3 class="author-name">Dra. Maria Santos</h3>
+                    <p class="author-affiliation">Universidade Estadual de Campinas (UNICAMP) - Faculdade de Engenharia Elétrica</p>
+                    <p class="author-articles">
+                        <strong>Artigos publicados:</strong> 2
+                        <br>• Processamento de Linguagem Natural: Transformers e Além
+                        <br>• Visão Computacional e Reconhecimento de Objetos em Tempo Real
+                    </p>
+                </div>
+
+                <div class="card author-card">
+                    <h3 class="author-name">Prof. Carlos Oliveira</h3>
+                    <p class="author-affiliation">Universidade Federal do Rio de Janeiro (UFRJ) - Departamento de Ciência da Computação</p>
+                    <p class="author-articles">
+                        <strong>Artigos publicados:</strong> 1
+                        <br>• Segurança em Sistemas de Computação em Nuvem
+                    </p>
+                </div>
+
+                <div class="card author-card">
+                    <h3 class="author-name">Dra. Ana Costa</h3>
+                    <p class="author-affiliation">Universidade Federal de Minas Gerais (UFMG) - Instituto de Ciências Exatas</p>
+                    <p class="author-articles">
+                        <strong>Artigos publicados:</strong> 1
+                        <br>• Análise de Redes Sociais: Métricas e Padrões de Comportamento
+                    </p>
+                </div>
+
+                <div class="card author-card">
+                    <h3 class="author-name">Dr. Pedro Ferreira</h3>
+                    <p class="author-affiliation">Universidade Federal da Bahia (UFBA) - Instituto de Computação</p>
+                    <p class="author-articles">
+                        <strong>Artigos publicados:</strong> 1
+                        <br>• Computação Quântica: Fundamentos e Aplicações Futuras
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Content: Keywords -->
+        <div class="tab-content keywords">
+            <div class="keywords-container">
+                <span class="keyword-badge">Inteligência Artificial</span>
+                <span class="keyword-badge">Aprendizado de Máquina</span>
+                <span class="keyword-badge">Redes Neurais</span>
+                <span class="keyword-badge">Processamento de Linguagem Natural</span>
+                <span class="keyword-badge">Transformers</span>
+                <span class="keyword-badge">Segurança em Nuvem</span>
+                <span class="keyword-badge">Computação em Nuvem</span>
+                <span class="keyword-badge">Redes Sociais</span>
+                <span class="keyword-badge">Graph Mining</span>
+                <span class="keyword-badge">Computação Quântica</span>
+                <span class="keyword-badge">Algoritmos Quânticos</span>
+                <span class="keyword-badge">Visão Computacional</span>
+                <span class="keyword-badge">Reconhecimento de Objetos</span>
+                <span class="keyword-badge">Redes Convolucionais</span>
+                <span class="keyword-badge">Deep Learning</span>
+            </div>
+        </div>
+
+        <!-- Tab Content: References -->
+        <div class="tab-content references">
+            <div class="references-list">
+                <div class="reference-item">
+                    <span class="reference-type">Livro</span>
+                    <p class="reference-text">
+                        <strong>Goodfellow, I., Bengio, Y., & Courville, A.</strong> (2016). <em>Deep Learning</em>. MIT Press. ISBN: 978-0262035613.
+                    </p>
+                </div>
+
+                <div class="reference-item">
+                    <span class="reference-type">Artigo</span>
+                    <p class="reference-text">
+                        <strong>Vaswani, A., Shazeer, N., Parmar, N., et al.</strong> (2017). "Attention Is All You Need". <em>Advances in Neural Information Processing Systems</em>, 30, 5998-6008.
+                    </p>
+                </div>
+
+                <div class="reference-item">
+                    <span class="reference-type">Artigo</span>
+                    <p class="reference-text">
+                        <strong>Devlin, J., Chang, M. W., Lee, K., & Toutanova, K.</strong> (2019). "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding". <em>Proceedings of NAACL-HLT</em>, 4171-4186.
+                    </p>
+                </div>
+
+                <div class="reference-item">
+                    <span class="reference-type">Livro</span>
+                    <p class="reference-text">
+                        <strong>Stallings, W.</strong> (2017). <em>Cloud Computing: Theory and Practice</em> (2nd ed.). Pearson. ISBN: 978-0134628288.
+                    </p>
+                </div>
+
+                <div class="reference-item">
+                    <span class="reference-type">Artigo</span>
+                    <p class="reference-text">
+                        <strong>Newman, M. E. J.</strong> (2003). "The structure and function of complex networks". <em>SIAM Review</em>, 45(2), 167-256.
+                    </p>
+                </div>
+
+                <div class="reference-item">
+                    <span class="reference-type">Artigo</span>
+                    <p class="reference-text">
+                        <strong>Preskill, J.</strong> (2018). "Quantum Computing in the NISQ era and beyond". <em>Quantum</em>, 2, 79.
+                    </p>
+                </div>
+
+                <div class="reference-item">
+                    <span class="reference-type">Livro</span>
+                    <p class="reference-text">
+                        <strong>LeCun, Y., Bengio, Y., & Hinton, G.</strong> (2015). "Deep learning". <em>Nature</em>, 521(7553), 436-444.
+                    </p>
+                </div>
+
+                <div class="reference-item">
+                    <span class="reference-type">Conferência</span>
+                    <p class="reference-text">
+                        <strong>He, K., Zhang, X., Ren, S., & Sun, J.</strong> (2016). "Deep Residual Learning for Image Recognition". <em>IEEE Conference on Computer Vision and Pattern Recognition (CVPR)</em>.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>&copy; 2024 Sistema de Gerenciamento de Artigos Acadêmicos. Todos os direitos reservados.</p>
+    </footer>
+</body>
+</html>
