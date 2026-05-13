@@ -1,786 +1,805 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Gerenciamento de Artigos Acadêmicos</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Base de Dados Bibliográfica</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --bg:        #0f0f13;
+      --surface:   #17171e;
+      --surface2:  #1f1f2a;
+      --border:    #2a2a38;
+      --accent:    #c8a96e;
+      --accent2:   #7b8cde;
+      --text:      #e8e4da;
+      --muted:     #7a7a8c;
+      --danger:    #e05c5c;
+      --radius:    10px;
+      --transition: 0.22s cubic-bezier(.4,0,.2,1);
+    }
 
-        :root {
-            --primary-color: #1a3a52;
-            --secondary-color: #2d5a7b;
-            --accent-color: #4a90e2;
-            --light-bg: #f8f9fa;
-            --card-bg: #ffffff;
-            --text-primary: #1a1a1a;
-            --text-secondary: #4a4a4a;
-            --border-color: #e0e0e0;
-            --success-color: #27ae60;
-            --highlight-color: #f0f4f8;
-            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
-            --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.12);
-            --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.15);
-        }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        body {
-            font-family: 'Segoe UI', 'Trebuchet MS', sans-serif;
-            background: linear-gradient(135deg, #f8f9fa 0%, #e8eef5 100%);
-            color: var(--text-primary);
-            line-height: 1.6;
-            min-height: 100vh;
-        }
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
 
-        /* Header */
-        header {
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
-            color: white;
-            padding: 3rem 2rem;
-            text-align: center;
-            box-shadow: var(--shadow-lg);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
+    /* ── NOISE OVERLAY ── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+      opacity: .5;
+    }
 
-        header h1 {
-            font-size: 2.5rem;
-            font-weight: 700;
-            letter-spacing: -0.5px;
-            margin-bottom: 0.5rem;
-        }
+    .wrapper { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding: 0 24px 60px; }
 
-        header p {
-            font-size: 1.1rem;
-            opacity: 0.95;
-            font-weight: 300;
-        }
+    /* ── HEADER ── */
+    header {
+      padding: 48px 0 32px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 36px;
+      display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 16px;
+    }
+    .header-left h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(1.8rem, 4vw, 2.8rem);
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+    }
+    .header-left h1 span { color: var(--accent); }
+    .header-left p { color: var(--muted); font-size: .875rem; margin-top: 6px; }
 
-        /* Main Container */
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 2rem;
-        }
+    /* CONFIG PANEL */
+    #config-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin-bottom: 32px;
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 12px;
+      align-items: end;
+    }
+    #config-panel label { font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; display: block; margin-bottom: 6px; }
+    #config-panel input {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 10px 14px;
+      font-size: .875rem;
+      font-family: 'DM Sans', sans-serif;
+      transition: border-color var(--transition);
+    }
+    #config-panel input:focus { outline: none; border-color: var(--accent); }
+    .btn-connect {
+      background: var(--accent);
+      color: #0f0f13;
+      border: none;
+      border-radius: 6px;
+      padding: 10px 22px;
+      font-size: .875rem;
+      font-weight: 500;
+      font-family: 'DM Sans', sans-serif;
+      cursor: pointer;
+      transition: opacity var(--transition), transform var(--transition);
+      white-space: nowrap;
+    }
+    .btn-connect:hover { opacity: .85; transform: translateY(-1px); }
+    .connection-status {
+      font-size: .8rem;
+      padding: 6px 12px;
+      border-radius: 20px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .connected { background: rgba(100,200,120,.12); color: #64c878; }
+    .connected .status-dot { background: #64c878; box-shadow: 0 0 6px #64c878; }
+    .disconnected { background: rgba(224,92,92,.1); color: var(--danger); }
+    .disconnected .status-dot { background: var(--danger); }
 
-        /* Search Bar */
-        .search-container {
-            margin-bottom: 2rem;
-            display: flex;
-            gap: 1rem;
-            flex-wrap: wrap;
-        }
+    /* ── TABS ── */
+    .tabs-nav {
+      display: flex; gap: 4px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 28px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .tabs-nav::-webkit-scrollbar { display: none; }
+    .tab-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-family: 'DM Sans', sans-serif;
+      font-size: .875rem;
+      font-weight: 500;
+      padding: 12px 20px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: color var(--transition), border-color var(--transition);
+      white-space: nowrap;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab-count {
+      background: var(--surface2);
+      color: var(--muted);
+      font-size: .7rem;
+      padding: 2px 7px;
+      border-radius: 10px;
+    }
+    .tab-btn.active .tab-count { background: rgba(200,169,110,.15); color: var(--accent); }
 
-        .search-box {
-            flex: 1;
-            min-width: 250px;
-            position: relative;
-        }
+    .tab-pane { display: none; animation: fadeIn .3s ease; }
+    .tab-pane.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
-        .search-box input {
-            width: 100%;
-            padding: 0.875rem 1.25rem 0.875rem 2.75rem;
-            border: 2px solid var(--border-color);
-            border-radius: 8px;
-            font-size: 1rem;
-            transition: all 0.3s ease;
-            background: var(--card-bg);
-            color: var(--text-primary);
-        }
+    /* ── SEARCH / FILTER BAR ── */
+    .search-bar {
+      display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;
+    }
+    .search-bar input, .search-bar select {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 9px 14px;
+      font-size: .875rem;
+      font-family: 'DM Sans', sans-serif;
+      transition: border-color var(--transition);
+    }
+    .search-bar input:focus, .search-bar select:focus { outline: none; border-color: var(--accent); }
+    .search-bar input { flex: 1; min-width: 220px; }
+    .search-bar select option { background: var(--surface); }
 
-        .search-box input:focus {
-            outline: none;
-            border-color: var(--accent-color);
-            box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
-        }
+    /* ── TABLE ── */
+    .table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: .875rem; }
+    thead tr { background: var(--surface2); }
+    th {
+      text-align: left;
+      padding: 13px 16px;
+      font-size: .72rem;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      color: var(--muted);
+      font-weight: 500;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      user-select: none;
+      transition: color var(--transition);
+    }
+    th:hover { color: var(--text); }
+    th.sorted { color: var(--accent); }
+    td {
+      padding: 13px 16px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+      vertical-align: top;
+    }
+    tr:last-child td { border-bottom: none; }
+    tbody tr { transition: background var(--transition); }
+    tbody tr:hover { background: var(--surface2); }
 
-        .search-box::before {
-            content: '🔍';
-            position: absolute;
-            left: 0.875rem;
-            top: 50%;
-            transform: translateY(-50%);
-            font-size: 1.2rem;
-        }
+    /* ── BADGES ── */
+    .badge {
+      display: inline-block;
+      padding: 3px 9px;
+      border-radius: 20px;
+      font-size: .72rem;
+      font-weight: 500;
+    }
+    .badge-blue { background: rgba(123,140,222,.15); color: var(--accent2); }
+    .badge-gold { background: rgba(200,169,110,.12); color: var(--accent); }
+    .badge-gray { background: var(--surface2); color: var(--muted); }
+    .badge-green { background: rgba(100,200,120,.12); color: #64c878; }
 
-        /* Navigation Tabs */
-        .tabs-container {
-            display: flex;
-            gap: 0;
-            margin-bottom: 2rem;
-            border-bottom: 2px solid var(--border-color);
-            overflow-x: auto;
-            background: var(--card-bg);
-            border-radius: 8px 8px 0 0;
-            box-shadow: var(--shadow-sm);
-        }
+    /* ── EXPAND ROW (artigos) ── */
+    .expand-btn {
+      background: none; border: none; color: var(--muted);
+      cursor: pointer; font-size: 1rem; padding: 2px 6px;
+      transition: color var(--transition);
+    }
+    .expand-btn:hover { color: var(--accent); }
+    .detail-row td {
+      background: #13131a;
+      padding: 16px 20px;
+    }
+    .detail-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 12px 24px;
+    }
+    .detail-item label { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); display: block; margin-bottom: 3px; }
+    .detail-item span { font-size: .85rem; }
+    .resumo-text { font-size: .82rem; color: var(--muted); line-height: 1.7; margin-top: 10px; }
+    .tags-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+    .detail-link { color: var(--accent); text-decoration: none; font-size: .82rem; }
+    .detail-link:hover { text-decoration: underline; }
 
-        .tab-button {
-            flex: 1;
-            padding: 1.25rem 1.5rem;
-            border: none;
-            background: transparent;
-            color: var(--text-secondary);
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            border-bottom: 3px solid transparent;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            white-space: nowrap;
-            min-width: 150px;
-        }
+    /* ── LOADING / EMPTY ── */
+    .state-box {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 60px 20px; color: var(--muted); gap: 12px; text-align: center;
+    }
+    .state-box svg { opacity: .3; }
+    .state-box p { font-size: .9rem; }
+    .spinner {
+      width: 32px; height: 32px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
-        .tab-button:hover {
-            color: var(--accent-color);
-            background: var(--highlight-color);
-        }
+    /* ── PAGINATION ── */
+    .pagination {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 18px;
+      border-top: 1px solid var(--border);
+      font-size: .8rem; color: var(--muted);
+      flex-wrap: wrap; gap: 10px;
+    }
+    .page-btns { display: flex; gap: 4px; }
+    .page-btn {
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--text); border-radius: 5px; padding: 5px 11px;
+      font-size: .8rem; cursor: pointer; transition: all var(--transition);
+    }
+    .page-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .page-btn.current { background: var(--accent); border-color: var(--accent); color: #0f0f13; font-weight: 600; }
+    .page-btn:disabled { opacity: .3; cursor: default; }
 
-        .tab-button:focus {
-            outline: none;
-            color: var(--accent-color);
-        }
+    /* ── STATS BAR ── */
+    .stats-bar {
+      display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 24px;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      flex: 1; min-width: 140px;
+    }
+    .stat-card .num {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.9rem;
+      color: var(--accent);
+      line-height: 1;
+    }
+    .stat-card .lbl { font-size: .78rem; color: var(--muted); margin-top: 4px; }
 
-        /* Tab Content */
-        .tab-content {
-            display: none;
-            animation: fadeIn 0.3s ease;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        /* Tab selection using CSS */
-        input[type="radio"] {
-            display: none;
-        }
-
-        #tab-articles:checked ~ .tabs-container .tab-articles,
-        #tab-authors:checked ~ .tabs-container .tab-authors,
-        #tab-keywords:checked ~ .tabs-container .tab-keywords,
-        #tab-references:checked ~ .tabs-container .tab-references {
-            color: var(--accent-color);
-            border-bottom-color: var(--accent-color);
-            background: var(--highlight-color);
-        }
-
-        #tab-articles:checked ~ .tab-content.articles,
-        #tab-authors:checked ~ .tab-content.authors,
-        #tab-keywords:checked ~ .tab-content.keywords,
-        #tab-references:checked ~ .tab-content.references {
-            display: block;
-        }
-
-        /* Cards */
-        .card {
-            background: var(--card-bg);
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-            box-shadow: var(--shadow-sm);
-            transition: all 0.3s ease;
-            border-left: 4px solid var(--accent-color);
-        }
-
-        .card:hover {
-            box-shadow: var(--shadow-md);
-            transform: translateY(-2px);
-        }
-
-        .card-title {
-            font-size: 1.3rem;
-            font-weight: 700;
-            color: var(--primary-color);
-            margin-bottom: 0.75rem;
-            line-height: 1.4;
-        }
-
-        .card-subtitle {
-            font-size: 0.95rem;
-            color: var(--text-secondary);
-            margin-bottom: 1rem;
-            font-weight: 500;
-        }
-
-        .card-meta {
-            display: flex;
-            gap: 1.5rem;
-            margin-bottom: 1rem;
-            flex-wrap: wrap;
-            font-size: 0.9rem;
-            color: var(--text-secondary);
-        }
-
-        .meta-item {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .card-description {
-            color: var(--text-secondary);
-            line-height: 1.7;
-            margin-bottom: 1rem;
-        }
-
-        /* Articles Grid */
-        .articles-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-            gap: 1.5rem;
-        }
-
-        .article-card {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .article-year {
-            display: inline-block;
-            background: var(--accent-color);
-            color: white;
-            padding: 0.25rem 0.75rem;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            margin-bottom: 0.75rem;
-            width: fit-content;
-        }
-
-        .article-summary {
-            flex-grow: 1;
-            margin-bottom: 1rem;
-        }
-
-        .article-link {
-            display: inline-block;
-            color: var(--accent-color);
-            text-decoration: none;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            padding: 0.5rem 0;
-            border-bottom: 2px solid transparent;
-        }
-
-        .article-link:hover {
-            border-bottom-color: var(--accent-color);
-        }
-
-        /* Authors List */
-        .authors-list {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 1.5rem;
-        }
-
-        .author-card {
-            border-left-color: var(--success-color);
-        }
-
-        .author-name {
-            font-size: 1.2rem;
-            font-weight: 700;
-            color: var(--primary-color);
-            margin-bottom: 0.5rem;
-        }
-
-        .author-affiliation {
-            color: var(--text-secondary);
-            font-style: italic;
-            margin-bottom: 1rem;
-            padding-bottom: 1rem;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .author-articles {
-            font-size: 0.95rem;
-            color: var(--text-secondary);
-        }
-
-        .author-articles strong {
-            color: var(--primary-color);
-        }
-
-        /* Keywords */
-        .keywords-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 1rem;
-        }
-
-        .keyword-badge {
-            background: linear-gradient(135deg, var(--accent-color) 0%, var(--secondary-color) 100%);
-            color: white;
-            padding: 0.75rem 1.5rem;
-            border-radius: 25px;
-            font-weight: 600;
-            font-size: 0.95rem;
-            box-shadow: var(--shadow-sm);
-            transition: all 0.3s ease;
-            cursor: default;
-        }
-
-        .keyword-badge:hover {
-            transform: translateY(-3px);
-            box-shadow: var(--shadow-md);
-        }
-
-        /* References */
-        .references-list {
-            display: flex;
-            flex-direction: column;
-            gap: 1.5rem;
-        }
-
-        .reference-item {
-            background: var(--card-bg);
-            padding: 1.5rem;
-            border-radius: 8px;
-            border-left: 4px solid var(--accent-color);
-            box-shadow: var(--shadow-sm);
-            transition: all 0.3s ease;
-        }
-
-        .reference-item:hover {
-            box-shadow: var(--shadow-md);
-            transform: translateX(4px);
-        }
-
-        .reference-text {
-            color: var(--text-primary);
-            line-height: 1.8;
-            font-size: 0.95rem;
-        }
-
-        .reference-type {
-            display: inline-block;
-            background: var(--highlight-color);
-            color: var(--text-secondary);
-            padding: 0.25rem 0.75rem;
-            border-radius: 4px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            margin-bottom: 0.75rem;
-            text-transform: uppercase;
-        }
-
-        /* Empty State */
-        .empty-state {
-            text-align: center;
-            padding: 3rem 2rem;
-            color: var(--text-secondary);
-        }
-
-        .empty-state-icon {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-        }
-
-        .empty-state h3 {
-            font-size: 1.3rem;
-            margin-bottom: 0.5rem;
-            color: var(--text-primary);
-        }
-
-        /* Footer */
-        footer {
-            background: var(--primary-color);
-            color: white;
-            text-align: center;
-            padding: 2rem;
-            margin-top: 3rem;
-            font-size: 0.95rem;
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            header h1 {
-                font-size: 1.8rem;
-            }
-
-            .container {
-                padding: 1rem;
-            }
-
-            .articles-grid,
-            .authors-list {
-                grid-template-columns: 1fr;
-            }
-
-            .tabs-container {
-                flex-wrap: wrap;
-            }
-
-            .tab-button {
-                flex: 0 1 auto;
-                padding: 1rem 1.25rem;
-                font-size: 0.9rem;
-                min-width: 120px;
-            }
-
-            .search-container {
-                flex-direction: column;
-            }
-
-            .search-box {
-                min-width: 100%;
-            }
-        }
-
-        /* Print Styles */
-        @media print {
-            header, footer, .search-container, .tabs-container {
-                display: none;
-            }
-
-            .card {
-                page-break-inside: avoid;
-            }
-        }
-    </style>
+    /* ── RESPONSIVE ── */
+    @media (max-width: 700px) {
+      #config-panel { grid-template-columns: 1fr; }
+      .stats-bar { gap: 10px; }
+      td, th { padding: 10px 12px; }
+    }
+  </style>
 </head>
 <body>
-    <header>
-        <h1>📚 Sistema de Gerenciamento de Artigos</h1>
-        <p>Explore artigos acadêmicos, autores, palavras-chave e referências bibliográficas</p>
-    </header>
+<div class="wrapper">
 
-    <div class="container">
-        <!-- Search Bar -->
-        <div class="search-container">
-            <div class="search-box">
-                <input type="text" id="searchInput" placeholder="Buscar artigos, autores ou palavras-chave...">
-            </div>
-        </div>
-
-        <!-- Tab Navigation -->
-        <input type="radio" id="tab-articles" name="tabs" checked>
-        <input type="radio" id="tab-authors" name="tabs">
-        <input type="radio" id="tab-keywords" name="tabs">
-        <input type="radio" id="tab-references" name="tabs">
-
-        <div class="tabs-container">
-            <label for="tab-articles" class="tab-button tab-articles">📄 Artigos</label>
-            <label for="tab-authors" class="tab-button tab-authors">👥 Autores</label>
-            <label for="tab-keywords" class="tab-button tab-keywords">🏷️ Palavras-chave</label>
-            <label for="tab-references" class="tab-button tab-references">📖 Referências</label>
-        </div>
-
-        <!-- Tab Content: Articles -->
-        <div class="tab-content articles active">
-            <div class="articles-grid">
-                <div class="card article-card">
-                    <span class="article-year">2023</span>
-                    <h3 class="card-title">Inteligência Artificial e Aprendizado de Máquina: Avanços Recentes</h3>
-                    <p class="card-description">Este artigo explora os avanços mais recentes em inteligência artificial e aprendizado de máquina, com foco em redes neurais profundas e suas aplicações práticas em diversos setores.</p>
-                    <div class="card-meta">
-                        <div class="meta-item">✍️ <strong>Dr. João Silva</strong></div>
-                        <div class="meta-item">📍 USP</div>
-                    </div>
-                    <a href="#" class="article-link">Ler mais →</a>
-                </div>
-
-                <div class="card article-card">
-                    <span class="article-year">2023</span>
-                    <h3 class="card-title">Processamento de Linguagem Natural: Transformers e Além</h3>
-                    <p class="card-description">Uma análise profunda sobre os modelos Transformer e sua revolucionária aplicação no processamento de linguagem natural, incluindo GPT e BERT.</p>
-                    <div class="card-meta">
-                        <div class="meta-item">✍️ <strong>Dra. Maria Santos</strong></div>
-                        <div class="meta-item">📍 UNICAMP</div>
-                    </div>
-                    <a href="#" class="article-link">Ler mais →</a>
-                </div>
-
-                <div class="card article-card">
-                    <span class="article-year">2022</span>
-                    <h3 class="card-title">Segurança em Sistemas de Computação em Nuvem</h3>
-                    <p class="card-description">Estudo abrangente sobre vulnerabilidades, ameaças e mecanismos de proteção em ambientes de computação em nuvem, com recomendações práticas.</p>
-                    <div class="card-meta">
-                        <div class="meta-item">✍️ <strong>Prof. Carlos Oliveira</strong></div>
-                        <div class="meta-item">📍 UFRJ</div>
-                    </div>
-                    <a href="#" class="article-link">Ler mais →</a>
-                </div>
-
-                <div class="card article-card">
-                    <span class="article-year">2022</span>
-                    <h3 class="card-title">Análise de Redes Sociais: Métricas e Padrões de Comportamento</h3>
-                    <p class="card-description">Investigação sobre padrões de comportamento em redes sociais, análise de influência e detecção de comunidades utilizando técnicas de graph mining.</p>
-                    <div class="card-meta">
-                        <div class="meta-item">✍️ <strong>Dra. Ana Costa</strong></div>
-                        <div class="meta-item">📍 UFMG</div>
-                    </div>
-                    <a href="#" class="article-link">Ler mais →</a>
-                </div>
-
-                <div class="card article-card">
-                    <span class="article-year">2023</span>
-                    <h3 class="card-title">Computação Quântica: Fundamentos e Aplicações Futuras</h3>
-                    <p class="card-description">Revisão dos princípios fundamentais da computação quântica, algoritmos quânticos e perspectivas de aplicação em problemas de otimização complexos.</p>
-                    <div class="card-meta">
-                        <div class="meta-item">✍️ <strong>Dr. Pedro Ferreira</strong></div>
-                        <div class="meta-item">📍 UFBA</div>
-                    </div>
-                    <a href="#" class="article-link">Ler mais →</a>
-                </div>
-
-                <div class="card article-card">
-                    <span class="article-year">2023</span>
-                    <h3 class="card-title">Visão Computacional e Reconhecimento de Objetos em Tempo Real</h3>
-                    <p class="card-description">Exploração de técnicas avançadas de visão computacional para detecção e reconhecimento de objetos em tempo real usando redes convolucionais.</p>
-                    <div class="card-meta">
-                        <div class="meta-item">✍️ <strong>Dr. João Silva, Dra. Maria Santos</strong></div>
-                        <div class="meta-item">📍 USP, UNICAMP</div>
-                    </div>
-                    <a href="#" class="article-link">Ler mais →</a>
-                </div>
-            </div>
-        </div>
-
-        <!-- Tab Content: Authors -->
-        <div class="tab-content authors">
-            <div class="authors-list">
-                <div class="card author-card">
-                    <h3 class="author-name">Dr. João Silva</h3>
-                    <p class="author-affiliation">Universidade de São Paulo (USP) - Instituto de Matemática e Estatística</p>
-                    <p class="author-articles">
-                        <strong>Artigos publicados:</strong> 2
-                        <br>• Inteligência Artificial e Aprendizado de Máquina: Avanços Recentes
-                        <br>• Visão Computacional e Reconhecimento de Objetos em Tempo Real
-                    </p>
-                </div>
-
-                <div class="card author-card">
-                    <h3 class="author-name">Dra. Maria Santos</h3>
-                    <p class="author-affiliation">Universidade Estadual de Campinas (UNICAMP) - Faculdade de Engenharia Elétrica</p>
-                    <p class="author-articles">
-                        <strong>Artigos publicados:</strong> 2
-                        <br>• Processamento de Linguagem Natural: Transformers e Além
-                        <br>• Visão Computacional e Reconhecimento de Objetos em Tempo Real
-                    </p>
-                </div>
-
-                <div class="card author-card">
-                    <h3 class="author-name">Prof. Carlos Oliveira</h3>
-                    <p class="author-affiliation">Universidade Federal do Rio de Janeiro (UFRJ) - Departamento de Ciência da Computação</p>
-                    <p class="author-articles">
-                        <strong>Artigos publicados:</strong> 1
-                        <br>• Segurança em Sistemas de Computação em Nuvem
-                    </p>
-                </div>
-
-                <div class="card author-card">
-                    <h3 class="author-name">Dra. Ana Costa</h3>
-                    <p class="author-affiliation">Universidade Federal de Minas Gerais (UFMG) - Instituto de Ciências Exatas</p>
-                    <p class="author-articles">
-                        <strong>Artigos publicados:</strong> 1
-                        <br>• Análise de Redes Sociais: Métricas e Padrões de Comportamento
-                    </p>
-                </div>
-
-                <div class="card author-card">
-                    <h3 class="author-name">Dr. Pedro Ferreira</h3>
-                    <p class="author-affiliation">Universidade Federal da Bahia (UFBA) - Instituto de Computação</p>
-                    <p class="author-articles">
-                        <strong>Artigos publicados:</strong> 1
-                        <br>• Computação Quântica: Fundamentos e Aplicações Futuras
-                    </p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Tab Content: Keywords -->
-        <div class="tab-content keywords">
-            <div class="keywords-container">
-                <span class="keyword-badge">Inteligência Artificial</span>
-                <span class="keyword-badge">Aprendizado de Máquina</span>
-                <span class="keyword-badge">Redes Neurais</span>
-                <span class="keyword-badge">Processamento de Linguagem Natural</span>
-                <span class="keyword-badge">Transformers</span>
-                <span class="keyword-badge">Segurança em Nuvem</span>
-                <span class="keyword-badge">Computação em Nuvem</span>
-                <span class="keyword-badge">Redes Sociais</span>
-                <span class="keyword-badge">Graph Mining</span>
-                <span class="keyword-badge">Computação Quântica</span>
-                <span class="keyword-badge">Algoritmos Quânticos</span>
-                <span class="keyword-badge">Visão Computacional</span>
-                <span class="keyword-badge">Reconhecimento de Objetos</span>
-                <span class="keyword-badge">Redes Convolucionais</span>
-                <span class="keyword-badge">Deep Learning</span>
-            </div>
-        </div>
-
-        <!-- Tab Content: References -->
-        <div class="tab-content references">
-            <div class="references-list">
-                <div class="reference-item">
-                    <span class="reference-type">Livro</span>
-                    <p class="reference-text">
-                        <strong>Goodfellow, I., Bengio, Y., & Courville, A.</strong> (2016). <em>Deep Learning</em>. MIT Press. ISBN: 978-0262035613.
-                    </p>
-                </div>
-
-                <div class="reference-item">
-                    <span class="reference-type">Artigo</span>
-                    <p class="reference-text">
-                        <strong>Vaswani, A., Shazeer, N., Parmar, N., et al.</strong> (2017). "Attention Is All You Need". <em>Advances in Neural Information Processing Systems</em>, 30, 5998-6008.
-                    </p>
-                </div>
-
-                <div class="reference-item">
-                    <span class="reference-type">Artigo</span>
-                    <p class="reference-text">
-                        <strong>Devlin, J., Chang, M. W., Lee, K., & Toutanova, K.</strong> (2019). "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding". <em>Proceedings of NAACL-HLT</em>, 4171-4186.
-                    </p>
-                </div>
-
-                <div class="reference-item">
-                    <span class="reference-type">Livro</span>
-                    <p class="reference-text">
-                        <strong>Stallings, W.</strong> (2017). <em>Cloud Computing: Theory and Practice</em> (2nd ed.). Pearson. ISBN: 978-0134628288.
-                    </p>
-                </div>
-
-                <div class="reference-item">
-                    <span class="reference-type">Artigo</span>
-                    <p class="reference-text">
-                        <strong>Newman, M. E. J.</strong> (2003). "The structure and function of complex networks". <em>SIAM Review</em>, 45(2), 167-256.
-                    </p>
-                </div>
-
-                <div class="reference-item">
-                    <span class="reference-type">Artigo</span>
-                    <p class="reference-text">
-                        <strong>Preskill, J.</strong> (2018). "Quantum Computing in the NISQ era and beyond". <em>Quantum</em>, 2, 79.
-                    </p>
-                </div>
-
-                <div class="reference-item">
-                    <span class="reference-type">Livro</span>
-                    <p class="reference-text">
-                        <strong>LeCun, Y., Bengio, Y., & Hinton, G.</strong> (2015). "Deep learning". <em>Nature</em>, 521(7553), 436-444.
-                    </p>
-                </div>
-
-                <div class="reference-item">
-                    <span class="reference-type">Conferência</span>
-                    <p class="reference-text">
-                        <strong>He, K., Zhang, X., Ren, S., & Sun, J.</strong> (2016). "Deep Residual Learning for Image Recognition". <em>IEEE Conference on Computer Vision and Pattern Recognition (CVPR)</em>.
-                    </p>
-                </div>
-            </div>
-        </div>
+  <!-- HEADER -->
+  <header>
+    <div class="header-left">
+      <h1>Base de Dados <span>Bibliográfica</span></h1>
+      <p>Dashboard de consulta e visualização de artigos científicos</p>
     </div>
+    <div id="conn-status" class="connection-status disconnected">
+      <span class="status-dot"></span>
+      <span id="conn-label">Desconectado</span>
+    </div>
+  </header>
 
-    <footer>
-        <p>&copy; 2024 Sistema de Gerenciamento de Artigos Acadêmicos. Todos os direitos reservados.</p>
-    </footer>
-    <!-- SDK do Supabase -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <div class="stats-bar">
+    <div class="stat-card"><div class="num" id="st-artigos">—</div><div class="lbl">Artigos</div></div>
+    <div class="stat-card"><div class="num" id="st-autores">—</div><div class="lbl">Autores</div></div>
+    <div class="stat-card"><div class="num" id="st-keywords">—</div><div class="lbl">Palavras-chave</div></div>
+    <div class="stat-card"><div class="num" id="st-refs">—</div><div class="lbl">Referências</div></div>
+  </div>
+
+  <!-- TABS -->
+  <nav class="tabs-nav">
+    <button class="tab-btn active" onclick="switchTab('artigos',this)">
+      📄 Artigos <span class="tab-count" id="cnt-artigos">0</span>
+    </button>
+    <button class="tab-btn" onclick="switchTab('autores',this)">
+      👤 Autores <span class="tab-count" id="cnt-autores">0</span>
+    </button>
+    <button class="tab-btn" onclick="switchTab('keywords',this)">
+      🏷️ Palavras-chave <span class="tab-count" id="cnt-keywords">0</span>
+    </button>
+    <button class="tab-btn" onclick="switchTab('referencias',this)">
+      📚 Referências <span class="tab-count" id="cnt-referencias">0</span>
+    </button>
+  </nav>
+
+  <!-- ===== ARTIGOS ===== -->
+  <div id="tab-artigos" class="tab-pane active">
+    <div class="search-bar">
+      <input type="text" id="search-artigos" placeholder="Buscar por título, DOI, ISSN…" oninput="debounce(() => loadArtigos(1), 350)()" />
+      <select id="filter-ano" onchange="loadArtigos(1)">
+        <option value="">Todos os anos</option>
+      </select>
+      <select id="filter-tipo" onchange="loadArtigos(1)">
+        <option value="">Todos os tipos</option>
+      </select>
+    </div>
+    <div class="table-wrap">
+      <table id="tbl-artigos">
+        <thead><tr>
+          <th style="width:36px;"></th>
+          <th onclick="sortTable('artigos','titulo')">Título</th>
+          <th onclick="sortTable('artigos','ano')">Ano</th>
+          <th onclick="sortTable('artigos','source_title')">Fonte</th>
+          <th onclick="sortTable('artigos','qtd_citacoes')">Citações</th>
+          <th>Tipo</th>
+          <th>Acesso</th>
+        </tr></thead>
+        <tbody id="body-artigos"></tbody>
+      </table>
+      <div id="pg-artigos" class="pagination" style="display:none"></div>
+    </div>
+  </div>
+
+  <!-- ===== AUTORES ===== -->
+  <div id="tab-autores" class="tab-pane">
+    <div class="search-bar">
+      <input type="text" id="search-autores" placeholder="Buscar por nome…" oninput="debounce(() => loadAutores(1), 350)()" />
+    </div>
+    <div class="table-wrap">
+      <table id="tbl-autores">
+        <thead><tr>
+          <th onclick="sortTable('autores','id')">ID</th>
+          <th onclick="sortTable('autores','nome')">Nome</th>
+          <th onclick="sortTable('autores','nome_completo')">Nome Completo</th>
+          <th>Artigos</th>
+        </tr></thead>
+        <tbody id="body-autores"></tbody>
+      </table>
+      <div id="pg-autores" class="pagination" style="display:none"></div>
+    </div>
+  </div>
+
+  <!-- ===== KEYWORDS ===== -->
+  <div id="tab-keywords" class="tab-pane">
+    <div class="search-bar">
+      <input type="text" id="search-keywords" placeholder="Buscar palavra-chave…" oninput="debounce(() => loadKeywords(1), 350)()" />
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th onclick="sortTable('keywords','id')">ID</th>
+          <th onclick="sortTable('keywords','palavra_chave')">Palavra-chave</th>
+          <th>Artigos</th>
+        </tr></thead>
+        <tbody id="body-keywords"></tbody>
+      </table>
+      <div id="pg-keywords" class="pagination" style="display:none"></div>
+    </div>
+  </div>
+
+  <!-- ===== REFERÊNCIAS ===== -->
+  <div id="tab-referencias" class="tab-pane">
+    <div class="search-bar">
+      <input type="text" id="search-referencias" placeholder="Buscar referência…" oninput="debounce(() => loadReferencias(1), 350)()" />
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th style="width:80px;" onclick="sortTable('referencias','id')">ID</th>
+          <th onclick="sortTable('referencias','referencia')">Referência</th>
+        </tr></thead>
+        <tbody id="body-referencias"></tbody>
+      </table>
+      <div id="pg-referencias" class="pagination" style="display:none"></div>
+    </div>
+  </div>
+
+</div><!-- /wrapper -->
 
 <script>
-    // 1. Configuração da conexão
-    const SUPABASE_URL = 'SUA_URL_AQUI'
-    const SUPABASE_KEY = 'SUA_KEY_ANON_AQUI'
-    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+/* ─────────────────────────────────────────
+   STATE
+───────────────────────────────────────── */
+let sb = null;
+const PAGE_SIZE = 25;
+const state = {
+  artigos:   { page: 1, sort: 'id', asc: true },
+  autores:   { page: 1, sort: 'nome', asc: true },
+  keywords:  { page: 1, sort: 'palavra_chave', asc: true },
+  referencias:{ page: 1, sort: 'id', asc: true },
+};
+const expandedRows = new Set();
 
-    // 2. Função para carregar os artigos
-    async function carregarArtigos() {
-        const { data: artigos, error } = await supabase
-            .from('artigo')
-            .select('*')
+/* ─────────────────────────────────────────
+   SUPABASE INIT
+───────────────────────────────────────── */
+async function initSupabase() {
+  const url = document.getElementById('supa-url').value.trim();
+  const key = document.getElementById('supa-key').value.trim();
+  if (!url || !key) { alert('Preencha URL e Anon Key.'); return; }
 
-        if (error) {
-            console.error('Erro ao buscar artigos:', error)
-            return
-        }
+  try {
+    sb = window.supabase.createClient(url, key);
+    // test connection
+    const { error } = await sb.from('artigo').select('id', { count: 'exact', head: true });
+    if (error) throw error;
+    setConnected(true);
+    loadAll();
+    populateFilters();
+  } catch(e) {
+    setConnected(false);
+    alert('Erro ao conectar: ' + e.message);
+  }
+}
 
-        const grid = document.querySelector('.articles-grid')
-        grid.innerHTML = '' // Limpa o conteúdo estático
+function setConnected(v) {
+  const el = document.getElementById('conn-status');
+  const lbl = document.getElementById('conn-label');
+  el.className = 'connection-status ' + (v ? 'connected' : 'disconnected');
+  lbl.textContent = v ? 'Conectado' : 'Desconectado';
+}
 
-        artigos.forEach(artigo => {
-            grid.innerHTML += `
-                <div class="card article-card">
-                    <span class="article-year">${artigo.ano}</span>
-                    <h3 class="card-title">${artigo.titulo}</h3>
-                    <p class="card-description">${artigo.resumo || 'Sem resumo disponível.'}</p>
-                    <div class="card-meta">
-                        <div class="meta-item">DOI: <strong>${artigo.doi || 'N/A'}</strong></div>
-                    </div>
-                    <a href="${artigo.link}" target="_blank" class="article-link">Ler mais →</a>
-                </div>
-            `
-        })
-    }
+/* ─────────────────────────────────────────
+   LOAD ALL / STATS
+───────────────────────────────────────── */
+async function loadAll() {
+  await Promise.all([loadArtigos(1), loadAutores(1), loadKeywords(1), loadReferencias(1)]);
+  loadStats();
+}
 
-    // 3. Função para carregar autores (com relação)
-    async function carregarAutores() {
-        // Busca autores e os títulos dos artigos que eles escreveram (Join)
-        const { data: autores, error } = await supabase
-            .from('autor')
-            .select(`
-                nome,
-                nome_completo,
-                artigo_autor (
-                    artigo (titulo)
-                )
-            `)
+async function loadStats() {
+  const tables = ['artigo','autor','palavras_chaves','referencias'];
+  const ids = ['st-artigos','st-autores','st-keywords','st-refs'];
+  for (let i = 0; i < tables.length; i++) {
+    const { count } = await sb.from(tables[i]).select('*', { count: 'exact', head: true });
+    document.getElementById(ids[i]).textContent = (count ?? 0).toLocaleString('pt-BR');
+  }
+}
 
-        if (error) return
+/* ─────────────────────────────────────────
+   FILTER POPULATION
+───────────────────────────────────────── */
+async function populateFilters() {
+  // Anos
+  const { data: anos } = await sb.from('artigo').select('ano').not('ano','is',null).order('ano',{ascending:false});
+  const unique = [...new Set((anos||[]).map(r=>r.ano))];
+  const selAno = document.getElementById('filter-ano');
+  unique.forEach(a => { const o = document.createElement('option'); o.value=a; o.textContent=a; selAno.appendChild(o); });
 
-        const list = document.querySelector('.authors-list')
-        list.innerHTML = ''
+  // Tipos
+  const { data: tipos } = await sb.from('artigo').select('tipo_documento').not('tipo_documento','is',null);
+  const uTipos = [...new Set((tipos||[]).map(r=>r.tipo_documento))];
+  const selTipo = document.getElementById('filter-tipo');
+  uTipos.forEach(t => { const o = document.createElement('option'); o.value=t; o.textContent=t; selTipo.appendChild(o); });
+}
 
-        autores.forEach(autor => {
-            const artigosNomes = autor.artigo_autor.map(aa => `• ${aa.artigo.titulo}`).join('<br>')
-            list.innerHTML += `
-                <div class="card author-card">
-                    <h3 class="author-name">${autor.nome_completo}</h3>
-                    <p class="author-affiliation">${autor.nome}</p>
-                    <p class="author-articles">
-                        <strong>Artigos vinculados:</strong><br>
-                        ${artigosNomes || 'Nenhum artigo encontrado.'}
-                    </p>
-                </div>
-            `
-        })
-    }
+/* ─────────────────────────────────────────
+   ARTIGOS
+───────────────────────────────────────── */
+async function loadArtigos(page = 1) {
+  if (!sb) return;
+  state.artigos.page = page;
+  const body = document.getElementById('body-artigos');
+  body.innerHTML = `<tr><td colspan="7"><div class="state-box"><div class="spinner"></div><p>Carregando…</p></div></td></tr>`;
 
-    // 4. Função para carregar palavras-chave
-    async function carregarPalavrasChave() {
-        const { data, error } = await supabase.from('palavras_chaves').select('palavra_chave')
-        if (error) return
+  const search = document.getElementById('search-artigos').value.trim();
+  const ano    = document.getElementById('filter-ano').value;
+  const tipo   = document.getElementById('filter-tipo').value;
+  const from   = (page - 1) * PAGE_SIZE;
+  const to     = from + PAGE_SIZE - 1;
 
-        const container = document.querySelector('.keywords-container')
-        container.innerHTML = ''
-        data.forEach(item => {
-            container.innerHTML += `<span class="keyword-badge">${item.palavra_chave}</span>`
-        })
-    }
+  let q = sb.from('artigo').select('*', { count: 'exact' });
+  if (search) q = q.or(`titulo.ilike.%${search}%,doi.ilike.%${search}%,issn.ilike.%${search}%`);
+  if (ano)    q = q.eq('ano', ano);
+  if (tipo)   q = q.eq('tipo_documento', tipo);
+  q = q.order(state.artigos.sort, { ascending: state.artigos.asc }).range(from, to);
 
-    // Inicializar carregamento ao abrir a página
-    document.addEventListener('DOMContentLoaded', () => {
-        carregarArtigos()
-        carregarAutores()
-        carregarPalavrasChave()
-    })
+  const { data, count, error } = await q;
+  if (error) { showError(body, 7, error.message); return; }
+
+  updateCount('cnt-artigos', count);
+  if (!data || data.length === 0) { showEmpty(body, 7, 'Nenhum artigo encontrado.'); return; }
+
+  body.innerHTML = '';
+  data.forEach(row => {
+    const tr = document.createElement('tr');
+    tr.id = `ar-row-${row.id}`;
+    tr.innerHTML = `
+      <td><button class="expand-btn" onclick="toggleDetail(${row.id})" title="Ver detalhes">▶</button></td>
+      <td style="max-width:340px;"><strong style="display:block;line-height:1.4">${esc(row.titulo||'—')}</strong></td>
+      <td>${row.ano ?? '—'}</td>
+      <td style="max-width:180px;font-size:.8rem;color:var(--muted)">${esc(row.source_title||'—')}</td>
+      <td>${row.qtd_citacoes ?? '—'}</td>
+      <td>${row.tipo_documento ? `<span class="badge badge-blue">${esc(row.tipo_documento)}</span>` : '—'}</td>
+      <td>${row.tipo_acesso ? `<span class="badge ${row.tipo_acesso==='Open Access'?'badge-green':'badge-gray'}">${esc(row.tipo_acesso)}</span>` : '—'}</td>
+    `;
+    body.appendChild(tr);
+
+    const det = document.createElement('tr');
+    det.id = `ar-det-${row.id}`;
+    det.className = 'detail-row';
+    det.style.display = 'none';
+    det.innerHTML = `<td colspan="7"><div id="det-content-${row.id}"><div class="state-box" style="padding:20px"><div class="spinner"></div></div></div></td>`;
+    body.appendChild(det);
+  });
+
+  renderPagination('pg-artigos', count, page, loadArtigos);
+}
+
+async function toggleDetail(id) {
+  const det = document.getElementById(`ar-det-${id}`);
+  const btn = document.querySelector(`#ar-row-${id} .expand-btn`);
+  if (det.style.display !== 'none') {
+    det.style.display = 'none';
+    btn.textContent = '▶';
+    return;
+  }
+  det.style.display = '';
+  btn.textContent = '▼';
+
+  // load detail
+  const [artRes, autores, keywords] = await Promise.all([
+    sb.from('artigo').select('*').eq('id', id).single(),
+    sb.from('artigo_autor').select('autor(*)').eq('id_artigo', id),
+    sb.from('artigo_palavrachave').select('palavras_chaves(*)').eq('id_artigo', id),
+  ]);
+  const a = artRes.data;
+  const autList = (autores.data||[]).map(x=>x.autor?.nome_completo||x.autor?.nome||'').filter(Boolean);
+  const kwList  = (keywords.data||[]).map(x=>x.palavras_chaves?.palavra_chave||'').filter(Boolean);
+
+  document.getElementById(`det-content-${id}`).innerHTML = `
+    <div class="detail-grid">
+      <div class="detail-item"><label>DOI</label><span>${a.doi ? `<a class="detail-link" href="https://doi.org/${esc(a.doi)}" target="_blank">${esc(a.doi)}</a>` : '—'}</span></div>
+      <div class="detail-item"><label>Link</label><span>${a.link ? `<a class="detail-link" href="${esc(a.link)}" target="_blank">Acessar</a>` : '—'}</span></div>
+      <div class="detail-item"><label>ISSN</label><span>${a.issn||'—'}</span></div>
+      <div class="detail-item"><label>ISBN</label><span>${a.isbn||'—'}</span></div>
+      <div class="detail-item"><label>Idioma</label><span>${a.linguagem||'—'}</span></div>
+      <div class="detail-item"><label>Estágio</label><span>${a.estagio_publicacao||'—'}</span></div>
+    </div>
+    <div style="margin-top:12px">
+      <div class="detail-item"><label>Autores</label>
+        <div class="tags-list">${autList.length ? autList.map(n=>`<span class="badge badge-blue">${esc(n)}</span>`).join('') : '<span style="color:var(--muted);font-size:.8rem">Não informado</span>'}</div>
+      </div>
+    </div>
+    <div style="margin-top:12px">
+      <div class="detail-item"><label>Palavras-chave</label>
+        <div class="tags-list">${kwList.length ? kwList.map(k=>`<span class="badge badge-gold">${esc(k)}</span>`).join('') : '<span style="color:var(--muted);font-size:.8rem">Não informado</span>'}</div>
+      </div>
+    </div>
+    ${a.resumo ? `<div class="resumo-text"><strong style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)">Resumo</strong><br>${esc(a.resumo)}</div>` : ''}
+  `;
+}
+
+/* ─────────────────────────────────────────
+   AUTORES
+───────────────────────────────────────── */
+async function loadAutores(page = 1) {
+  if (!sb) return;
+  state.autores.page = page;
+  const body = document.getElementById('body-autores');
+  body.innerHTML = `<tr><td colspan="4"><div class="state-box"><div class="spinner"></div><p>Carregando…</p></div></td></tr>`;
+
+  const search = document.getElementById('search-autores').value.trim();
+  const from   = (page - 1) * PAGE_SIZE;
+  const to     = from + PAGE_SIZE - 1;
+
+  let q = sb.from('autor').select('*, artigo_autor(count)', { count: 'exact' });
+  if (search) q = q.or(`nome.ilike.%${search}%,nome_completo.ilike.%${search}%`);
+  q = q.order(state.autores.sort, { ascending: state.autores.asc }).range(from, to);
+
+  const { data, count, error } = await q;
+  if (error) { showError(body, 4, error.message); return; }
+
+  updateCount('cnt-autores', count);
+  if (!data || data.length === 0) { showEmpty(body, 4, 'Nenhum autor encontrado.'); return; }
+
+  body.innerHTML = data.map(row => `
+    <tr>
+      <td style="font-size:.78rem;color:var(--muted);font-family:monospace">${esc(row.id)}</td>
+      <td>${esc(row.nome||'—')}</td>
+      <td>${esc(row.nome_completo||'—')}</td>
+      <td><span class="badge badge-gray">${row.artigo_autor?.[0]?.count ?? 0} artigos</span></td>
+    </tr>
+  `).join('');
+
+  renderPagination('pg-autores', count, page, loadAutores);
+}
+
+/* ─────────────────────────────────────────
+   KEYWORDS
+───────────────────────────────────────── */
+async function loadKeywords(page = 1) {
+  if (!sb) return;
+  state.keywords.page = page;
+  const body = document.getElementById('body-keywords');
+  body.innerHTML = `<tr><td colspan="3"><div class="state-box"><div class="spinner"></div><p>Carregando…</p></div></td></tr>`;
+
+  const search = document.getElementById('search-keywords').value.trim();
+  const from   = (page - 1) * PAGE_SIZE;
+  const to     = from + PAGE_SIZE - 1;
+
+  let q = sb.from('palavras_chaves').select('*, artigo_palavrachave(count)', { count: 'exact' });
+  if (search) q = q.ilike('palavra_chave', `%${search}%`);
+  q = q.order(state.keywords.sort, { ascending: state.keywords.asc }).range(from, to);
+
+  const { data, count, error } = await q;
+  if (error) { showError(body, 3, error.message); return; }
+
+  updateCount('cnt-keywords', count);
+  if (!data || data.length === 0) { showEmpty(body, 3, 'Nenhuma palavra-chave encontrada.'); return; }
+
+  body.innerHTML = data.map(row => `
+    <tr>
+      <td style="font-size:.78rem;color:var(--muted);font-family:monospace">${esc(row.id)}</td>
+      <td><span class="badge badge-gold">${esc(row.palavra_chave||'—')}</span></td>
+      <td><span class="badge badge-gray">${row.artigo_palavrachave?.[0]?.count ?? 0} artigos</span></td>
+    </tr>
+  `).join('');
+
+  renderPagination('pg-keywords', count, page, loadKeywords);
+}
+
+/* ─────────────────────────────────────────
+   REFERÊNCIAS
+───────────────────────────────────────── */
+async function loadReferencias(page = 1) {
+  if (!sb) return;
+  state.referencias.page = page;
+  const body = document.getElementById('body-referencias');
+  body.innerHTML = `<tr><td colspan="2"><div class="state-box"><div class="spinner"></div><p>Carregando…</p></div></td></tr>`;
+
+  const search = document.getElementById('search-referencias').value.trim();
+  const from   = (page - 1) * PAGE_SIZE;
+  const to     = from + PAGE_SIZE - 1;
+
+  let q = sb.from('referencias').select('*', { count: 'exact' });
+  if (search) q = q.ilike('referencia', `%${search}%`);
+  q = q.order(state.referencias.sort, { ascending: state.referencias.asc }).range(from, to);
+
+  const { data, count, error } = await q;
+  if (error) { showError(body, 2, error.message); return; }
+
+  updateCount('cnt-referencias', count);
+  if (!data || data.length === 0) { showEmpty(body, 2, 'Nenhuma referência encontrada.'); return; }
+
+  body.innerHTML = data.map(row => `
+    <tr>
+      <td style="font-size:.78rem;color:var(--muted)">${row.id}</td>
+      <td style="font-size:.82rem;line-height:1.6">${esc(row.referencia||'—')}</td>
+    </tr>
+  `).join('');
+
+  renderPagination('pg-referencias', count, page, loadReferencias);
+}
+
+/* ─────────────────────────────────────────
+   SORTING
+───────────────────────────────────────── */
+function sortTable(tab, col) {
+  if (state[tab].sort === col) state[tab].asc = !state[tab].asc;
+  else { state[tab].sort = col; state[tab].asc = true; }
+  const loaders = { artigos: loadArtigos, autores: loadAutores, keywords: loadKeywords, referencias: loadReferencias };
+  loaders[tab](1);
+}
+
+/* ─────────────────────────────────────────
+   PAGINATION
+───────────────────────────────────────── */
+function renderPagination(containerId, total, current, loader) {
+  const el = document.getElementById(containerId);
+  const pages = Math.ceil(total / PAGE_SIZE);
+  if (pages <= 1) { el.style.display = 'none'; return; }
+  el.style.display = 'flex';
+  const start = (current - 1) * PAGE_SIZE + 1;
+  const end   = Math.min(current * PAGE_SIZE, total);
+
+  let btns = '';
+  // prev
+  btns += `<button class="page-btn" onclick="(${loader.name})(${current-1})" ${current===1?'disabled':''}>‹</button>`;
+  // pages
+  const range = getPageRange(current, pages);
+  range.forEach(p => {
+    if (p === '…') btns += `<span style="padding:5px 4px;color:var(--muted)">…</span>`;
+    else btns += `<button class="page-btn ${p===current?'current':''}" onclick="(${loader.name})(${p})">${p}</button>`;
+  });
+  // next
+  btns += `<button class="page-btn" onclick="(${loader.name})(${current+1})" ${current===pages?'disabled':''}>›</button>`;
+
+  el.innerHTML = `<span>${start}–${end} de ${total.toLocaleString('pt-BR')}</span><div class="page-btns">${btns}</div>`;
+}
+
+function getPageRange(current, total) {
+  if (total <= 7) return Array.from({length:total},(_,i)=>i+1);
+  if (current <= 4) return [1,2,3,4,5,'…',total];
+  if (current >= total - 3) return [1,'…',total-4,total-3,total-2,total-1,total];
+  return [1,'…',current-1,current,current+1,'…',total];
+}
+
+/* ─────────────────────────────────────────
+   TABS
+───────────────────────────────────────── */
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+}
+
+/* ─────────────────────────────────────────
+   HELPERS
+───────────────────────────────────────── */
+function esc(str) {
+  if (str == null) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function showEmpty(body, cols, msg) {
+  body.innerHTML = `<tr><td colspan="${cols}"><div class="state-box">
+    <svg width="40" height="40" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-3-3v6m-8 4h18a2 2 0 002-2V6a2 2 0 00-2-2H4a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+    <p>${msg}</p></div></td></tr>`;
+}
+
+function showError(body, cols, msg) {
+  body.innerHTML = `<tr><td colspan="${cols}"><div class="state-box" style="color:var(--danger)">
+    <svg width="40" height="40" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="12" cy="12" r="10" stroke-width="1.5"/><path stroke-linecap="round" stroke-width="1.5" d="M12 8v4m0 4h.01"/></svg>
+    <p>Erro: ${esc(msg)}</p></div></td></tr>`;
+}
+
+function updateCount(id, count) {
+  document.getElementById(id).textContent = (count ?? 0).toLocaleString('pt-BR');
+}
+
+function debounce(fn, delay) {
+  let t;
+  return (...args) => {
+    clearTimeout(t);
+    t = setTimeout(() => fn(...args), delay);
+  };
+}
+
+// Load from localStorage if previously saved
+window.addEventListener('DOMContentLoaded', () => {
+  const savedUrl = localStorage.getItem('sb_url');
+  const savedKey = localStorage.getItem('sb_key');
+  if (savedUrl) document.getElementById('supa-url').value = savedUrl;
+  if (savedKey) document.getElementById('supa-key').value = savedKey;
+});
+
+// Override initSupabase to also save credentials
+const _origInit = initSupabase;
+window.initSupabase = async function() {
+  const url = 'https://gxnwngltagbksavkpklk.supabase.co';
+  const key = 'sb_publishable_rCBXXkTxUP7uJ1seU972fw_rPDmym80';
+  if (url) localStorage.setItem('sb_url', url);
+  if (key) localStorage.setItem('sb_key', key);
+  await _origInit();
+};
 </script>
 </body>
 </html>
