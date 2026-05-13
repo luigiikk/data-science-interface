@@ -692,5 +692,95 @@
     <footer>
         <p>&copy; 2024 Sistema de Gerenciamento de Artigos Acadêmicos. Todos os direitos reservados.</p>
     </footer>
+    <!-- SDK do Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+    // 1. Configuração da conexão
+    const SUPABASE_URL = 'SUA_URL_AQUI'
+    const SUPABASE_KEY = 'SUA_KEY_ANON_AQUI'
+    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+
+    // 2. Função para carregar os artigos
+    async function carregarArtigos() {
+        const { data: artigos, error } = await supabase
+            .from('artigo')
+            .select('*')
+
+        if (error) {
+            console.error('Erro ao buscar artigos:', error)
+            return
+        }
+
+        const grid = document.querySelector('.articles-grid')
+        grid.innerHTML = '' // Limpa o conteúdo estático
+
+        artigos.forEach(artigo => {
+            grid.innerHTML += `
+                <div class="card article-card">
+                    <span class="article-year">${artigo.ano}</span>
+                    <h3 class="card-title">${artigo.titulo}</h3>
+                    <p class="card-description">${artigo.resumo || 'Sem resumo disponível.'}</p>
+                    <div class="card-meta">
+                        <div class="meta-item">DOI: <strong>${artigo.doi || 'N/A'}</strong></div>
+                    </div>
+                    <a href="${artigo.link}" target="_blank" class="article-link">Ler mais →</a>
+                </div>
+            `
+        })
+    }
+
+    // 3. Função para carregar autores (com relação)
+    async function carregarAutores() {
+        // Busca autores e os títulos dos artigos que eles escreveram (Join)
+        const { data: autores, error } = await supabase
+            .from('autor')
+            .select(`
+                nome,
+                nome_completo,
+                artigo_autor (
+                    artigo (titulo)
+                )
+            `)
+
+        if (error) return
+
+        const list = document.querySelector('.authors-list')
+        list.innerHTML = ''
+
+        autores.forEach(autor => {
+            const artigosNomes = autor.artigo_autor.map(aa => `• ${aa.artigo.titulo}`).join('<br>')
+            list.innerHTML += `
+                <div class="card author-card">
+                    <h3 class="author-name">${autor.nome_completo}</h3>
+                    <p class="author-affiliation">${autor.nome}</p>
+                    <p class="author-articles">
+                        <strong>Artigos vinculados:</strong><br>
+                        ${artigosNomes || 'Nenhum artigo encontrado.'}
+                    </p>
+                </div>
+            `
+        })
+    }
+
+    // 4. Função para carregar palavras-chave
+    async function carregarPalavrasChave() {
+        const { data, error } = await supabase.from('palavras_chaves').select('palavra_chave')
+        if (error) return
+
+        const container = document.querySelector('.keywords-container')
+        container.innerHTML = ''
+        data.forEach(item => {
+            container.innerHTML += `<span class="keyword-badge">${item.palavra_chave}</span>`
+        })
+    }
+
+    // Inicializar carregamento ao abrir a página
+    document.addEventListener('DOMContentLoaded', () => {
+        carregarArtigos()
+        carregarAutores()
+        carregarPalavrasChave()
+    })
+</script>
 </body>
 </html>
