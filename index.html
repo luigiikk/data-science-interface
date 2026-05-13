@@ -315,6 +315,26 @@
     </div>
   </header>
 
+  <div style="margin-bottom:24px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+  
+    <input
+      type="file"
+      id="csv-file"
+      accept=".csv"
+      style="display:none"
+      onchange="handleCSVUpload(event)"
+    />
+  
+    <button class="btn-connect" onclick="document.getElementById('csv-file').click()">
+      📥 Importar CSV
+    </button>
+  
+    <div id="import-status" style="font-size:.85rem;color:var(--muted)">
+      Nenhum arquivo carregado
+    </div>
+  
+  </div>
+
   <div class="stats-bar">
     <div class="stat-card"><div class="num" id="st-artigos">—</div><div class="lbl">Artigos</div></div>
     <div class="stat-card"><div class="num" id="st-autores">—</div><div class="lbl">Autores</div></div>
@@ -808,6 +828,258 @@ async function initSupabase() {
     alert('Erro ao conectar: ' + e.message);
   }
 }
+  /* ─────────────────────────────────────────
+   CSV IMPORT
+───────────────────────────────────────── */
+
+async function handleCSVUpload(event) {
+
+  const file = event.target.files[0];
+
+  if (!file) return;
+
+  document.getElementById('import-status').textContent =
+    'Lendo CSV...';
+
+  const text = await file.text();
+
+  const rows = parseCSV(text);
+
+  if (!rows.length) {
+    alert('CSV vazio.');
+    return;
+  }
+
+  try {
+
+    for (const row of rows) {
+
+      /* =========================
+         INSERT ARTIGO
+      ========================== */
+
+      const artigoPayload = {
+        titulo: row["Title"] || null,
+        ano: parseInt(row["Year"]) || null,
+        source_title: row["Source title"] || null,
+        qtd_citacoes: parseInt(row["Cited by"]) || 0,
+        doi: row["DOI"] || null,
+        link: row["Link"] || null,
+        resumo: row["Abstract"] || null,
+        issn: row["ISSN"] || null,
+        isbn: row["ISBN"] || null,
+        linguagem: row["Language of Original Document"] || null,
+        tipo_documento: row["Document Type"] || null,
+        tipo_acesso: row["Open Access"] || null,
+        source: row["Source"] || null
+      };
+
+      const { data: artigo, error: artigoError } = await sb
+        .from('artigo')
+        .insert(artigoPayload)
+        .select()
+        .single();
+
+      if (artigoError) {
+        console.error(artigoError);
+        continue;
+      }
+
+      const artigoId = artigo.id;
+
+      /* =========================
+         AUTORES
+      ========================== */
+
+      const autores = (row["Author full names"] || '')
+        .split(';')
+        .map(a => a.trim())
+        .filter(Boolean);
+
+      for (const nomeCompleto of autores) {
+
+        let { data: autorExist } = await sb
+          .from('autor')
+          .select('*')
+          .eq('nome_completo', nomeCompleto)
+          .maybeSingle();
+
+        let autorId;
+
+        if (!autorExist) {
+
+          const nomeCurto =
+            nomeCompleto.split(',')[0]?.trim() || nomeCompleto;
+
+          const { data: novoAutor } = await sb
+            .from('autor')
+            .insert({
+              nome: nomeCurto,
+              nome_completo: nomeCompleto
+            })
+            .select()
+            .single();
+
+          autorId = novoAutor.id;
+
+        } else {
+          autorId = autorExist.id;
+        }
+
+        await sb
+          .from('artigo_autor')
+          .insert({
+            id_artigo: artigoId,
+            id_autor: autorId
+          });
+      }
+
+      /* =========================
+         KEYWORDS
+      ========================== */
+
+      const keywords = (
+        row["Author Keywords"] ||
+        row["Index Keywords"] ||
+        ''
+      )
+      .split(';')
+      .map(k => k.trim())
+      .filter(Boolean);
+
+      for (const palavra of keywords) {
+
+        let { data: kwExist } = await sb
+          .from('palavras_chaves')
+          .select('*')
+          .eq('palavra_chave', palavra)
+          .maybeSingle();
+
+        let kwId;
+
+        if (!kwExist) {
+
+          const { data: novaKw } = await sb
+            .from('palavras_chaves')
+            .insert({
+              palavra_chave: palavra
+            })
+            .select()
+            .single();
+
+          kwId = novaKw.id;
+
+        } else {
+          kwId = kwExist.id;
+        }
+
+        await sb
+          .from('artigo_palavrachave')
+          .insert({
+            id_artigo: artigoId,
+            id_palavra_chave: kwId
+          });
+      }
+
+      /* =========================
+         REFERÊNCIAS
+      ========================== */
+
+      const refs = (row["References"] || '')
+        .split(';')
+        .map(r => r.trim())
+        .filter(Boolean);
+
+      for (const ref of refs) {
+
+        await sb
+          .from('referencias')
+          .insert({
+            referencia: ref
+          });
+      }
+    }
+
+    document.getElementById('import-status').textContent =
+      '✅ Importação concluída';
+
+    await loadAll();
+
+    alert('CSV importado com sucesso.');
+
+  } catch (e) {
+
+    console.error(e);
+
+    document.getElementById('import-status').textContent =
+      '❌ Erro na importação';
+
+    alert('Erro ao importar CSV: ' + e.message);
+  }
+}
+
+/* ─────────────────────────────────────────
+   SIMPLE CSV PARSER
+───────────────────────────────────────── */
+
+function parseCSV(text) {
+
+  const lines = text.split(/\r?\n/);
+
+  if (lines.length < 2) return [];
+
+  const headers = splitCSVLine(lines[0]);
+
+  const data = [];
+
+  for (let i = 1; i < lines.length; i++) {
+
+    if (!lines[i].trim()) continue;
+
+    const values = splitCSVLine(lines[i]);
+
+    const obj = {};
+
+    headers.forEach((h, idx) => {
+      obj[h.trim()] = values[idx]?.trim() || '';
+    });
+
+    data.push(obj);
+  }
+
+  return data;
+}
+
+function splitCSVLine(line) {
+
+  const result = [];
+
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+
+    const char = line[i];
+
+    if (char === '"') {
+      inQuotes = !inQuotes;
+      continue;
+    }
+
+    if (char === ',' && !inQuotes) {
+      result.push(current);
+      current = '';
+      continue;
+    }
+
+    current += char;
+  }
+
+  result.push(current);
+
+  return result;
+}
+  
 window.addEventListener('DOMContentLoaded', async () => {
   await initSupabase();
 });
