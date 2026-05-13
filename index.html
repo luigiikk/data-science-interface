@@ -782,24 +782,35 @@ function debounce(fn, delay) {
     t = setTimeout(() => fn(...args), delay);
   };
 }
-
-// Load from localStorage if previously saved
-window.addEventListener('DOMContentLoaded', () => {
-  const savedUrl = localStorage.getItem('sb_url');
-  const savedKey = localStorage.getItem('sb_key');
-  if (savedUrl) document.getElementById('supa-url').value = savedUrl;
-  if (savedKey) document.getElementById('supa-key').value = savedKey;
-});
-
-// Override initSupabase to also save credentials
-const _origInit = initSupabase;
-window.initSupabase = async function() {
+  
+async function initSupabase() {
   const url = 'https://gxnwngltagbksavkpklk.supabase.co';
+
   const key = 'sb_publishable_rCBXXkTxUP7uJ1seU972fw_rPDmym80';
-  if (url) localStorage.setItem('sb_url', url);
-  if (key) localStorage.setItem('sb_key', key);
-  await _origInit();
-};
+
+  try {
+    sb = window.supabase.createClient(url, key);
+
+    const { error } = await sb
+      .from('artigo')
+      .select('id', { count: 'exact', head: true });
+
+    if (error) throw error;
+
+    setConnected(true);
+
+    await loadAll();
+    await populateFilters();
+
+  } catch(e) {
+    console.error(e);
+    setConnected(false);
+    alert('Erro ao conectar: ' + e.message);
+  }
+}
+window.addEventListener('DOMContentLoaded', async () => {
+  await initSupabase();
+});
 </script>
 </body>
 </html>
