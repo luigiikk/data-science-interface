@@ -852,13 +852,21 @@ async function handleCSVUpload(event) {
 
   try {
 
+    let artigoCounter = Date.now();
+    let referenciaCounter = Date.now();
+
     for (const row of rows) {
 
       /* =========================
-         INSERT ARTIGO
+         ARTIGO
       ========================== */
 
+      artigoCounter++;
+
+      const artigoId = artigoCounter;
+
       const artigoPayload = {
+        id: artigoId,
         titulo: row["Title"] || null,
         ano: parseInt(row["Year"]) || null,
         source_title: row["Source title"] || null,
@@ -870,22 +878,18 @@ async function handleCSVUpload(event) {
         isbn: row["ISBN"] || null,
         linguagem: row["Language of Original Document"] || null,
         tipo_documento: row["Document Type"] || null,
-        tipo_acesso: row["Open Access"] || null,
-        source: row["Source"] || null
+        estagio_publicacao: null,
+        tipo_acesso: row["Open Access"] || null
       };
 
-      const { data: artigo, error: artigoError } = await sb
+      const { error: artigoError } = await sb
         .from('artigo')
-        .insert(artigoPayload)
-        .select()
-        .single();
+        .insert(artigoPayload);
 
       if (artigoError) {
-        console.error(artigoError);
+        console.error('Erro artigo:', artigoError);
         continue;
       }
-
-      const artigoId = artigo.id;
 
       /* =========================
          AUTORES
@@ -908,27 +912,32 @@ async function handleCSVUpload(event) {
 
         if (!autorExist) {
 
+          autorId = crypto.randomUUID();
+
           const nomeCurto =
             nomeCompleto.split(',')[0]?.trim() || nomeCompleto;
 
-          const { data: novoAutor } = await sb
+          const { error: autorError } = await sb
             .from('autor')
             .insert({
+              id: autorId,
               nome: nomeCurto,
               nome_completo: nomeCompleto
-            })
-            .select()
-            .single();
+            });
 
-          autorId = novoAutor.id;
+          if (autorError) {
+            console.error('Erro autor:', autorError);
+            continue;
+          }
 
         } else {
+
           autorId = autorExist.id;
         }
 
         await sb
           .from('artigo_autor')
-          .insert({
+          .upsert({
             id_artigo: artigoId,
             id_autor: autorId
           });
@@ -959,25 +968,30 @@ async function handleCSVUpload(event) {
 
         if (!kwExist) {
 
-          const { data: novaKw } = await sb
+          kwId = crypto.randomUUID();
+
+          const { error: kwError } = await sb
             .from('palavras_chaves')
             .insert({
+              id: kwId,
               palavra_chave: palavra
-            })
-            .select()
-            .single();
+            });
 
-          kwId = novaKw.id;
+          if (kwError) {
+            console.error('Erro keyword:', kwError);
+            continue;
+          }
 
         } else {
+
           kwId = kwExist.id;
         }
 
         await sb
           .from('artigo_palavrachave')
-          .insert({
+          .upsert({
             id_artigo: artigoId,
-            id_palavra_chave: kwId
+            id_palavrachave: kwId
           });
       }
 
@@ -992,10 +1006,42 @@ async function handleCSVUpload(event) {
 
       for (const ref of refs) {
 
-        await sb
+        let { data: refExist } = await sb
           .from('referencias')
-          .insert({
-            referencia: ref
+          .select('*')
+          .eq('referencia', ref)
+          .maybeSingle();
+
+        let refId;
+
+        if (!refExist) {
+
+          referenciaCounter++;
+
+          refId = referenciaCounter;
+
+          const { error: refError } = await sb
+            .from('referencias')
+            .insert({
+              id: refId,
+              referencia: ref
+            });
+
+          if (refError) {
+            console.error('Erro referência:', refError);
+            continue;
+          }
+
+        } else {
+
+          refId = refExist.id;
+        }
+
+        await sb
+          .from('artigo_referencia')
+          .upsert({
+            id_artigo: artigoId,
+            id_referencia: refId
           });
       }
     }
